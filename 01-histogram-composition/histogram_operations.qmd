@@ -1,0 +1,186 @@
+---
+title: "\"Сложение\" гистограмм"
+editor: visual
+number-sections: true
+toc: true
+toc-title: "Содержание"
+format:
+  html:
+    toc-location: left
+    embed-resources: true
+---
+
+```{r echo=FALSE, output=FALSE}
+library(tidyverse)
+```
+
+## Гистограммы с двумя столбиками
+
+Сгенерируем две случайные величины, имитирующие исходные гистограммы, при помощи кусков ("столбиков" исходных гистограмм), распределённых по равномерному закону. Данные случайно перемешиваем, чтобы их порядок не влиял на распределение суммы:
+
+```{r}
+chunk_size = 10^6
+
+# первая случайная величина, имитирующая гистограмму
+v1_chunk1 = runif(chunk_size, 2, 3)
+v1_chunk2 = runif(chunk_size, 3, 5)
+v1 = c(v1_chunk1, v1_chunk2)[sample(chunk_size*2)]
+
+# вторая случайная величина, имитирующая гистограмму
+v2_chunk1 = runif(chunk_size, 4, 8)
+v2_chunk2 = runif(chunk_size, 8, 10)
+v2 = c(v2_chunk1, v2_chunk2)[sample(chunk_size*2)]
+```
+
+Построим гистограммы этих случайных величин:
+
+```{r}
+df_v1 = tibble(var = "v1", value = v1)
+df_v2 = tibble(var = "v2", value = v2)
+df <- bind_rows(df_v1, df_v2)
+
+ggplot(df, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100) +
+  facet_wrap(~var)
+```
+
+Мысленно можно представить, что это две гистограммы с разной шириной интервала. В каждой гистограмме при этом по два столбика. Теперь выведем гистограмму распределения суммы:
+
+```{r}
+df_sum = tibble(var = "v1+v2", value = v1 + v2)
+
+ggplot(df_sum, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
+
+Попробуем теперь рассмотреть взаимодействие отдельных кусков (столбиков исходных гистограмм), из которых генерировали случайные величины v1 и v2. Будем попарно брать суммы куска данных, имитирующего столбец первой гистограммы, и куска данных, имитирующего столбец второй гистограммы:
+
+```{r}
+df_chunks_1_1 = tibble(
+  var = "chunks_1_1",
+  value = v1_chunk1 + v2_chunk1
+)
+df_chunks_1_2 = tibble(
+  var = "chunks_1_2",
+  value = v1_chunk1 + v2_chunk2
+)
+df_chunks_2_1 = tibble(
+  var = "chunks_2_1",
+  value = v1_chunk2 + v2_chunk1
+)
+df_chunks_2_2 = tibble(
+  var = "chunks_2_2",
+  value = v1_chunk2 + v2_chunk2
+)
+df_chunks = bind_rows(
+  df_chunks_1_1, df_chunks_1_2,
+  df_chunks_2_1, df_chunks_2_2
+)
+
+ggplot(df_chunks, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100) +
+  facet_wrap(~var)
+```
+
+Изобразим те же самые данные на одном графике с накоплением:
+
+```{r}
+ggplot(df_chunks, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
+
+Видно, что результирущее распределение "выклеивается" из этих кусочков. Поэтому, если у нас будет 2 гистограммы со 100 столбцами каждая, то нам нужно будет рассмотреть $100 \times 100 = 10000$ комбинаций пар столбцов из этих гистограмм. После комбинирования этих куском получим гистограмму, по форме соответствующую искомой. Масштаб по оси Y нужно будет привести к целевому.
+
+## Гистограммы с тремя столбиками
+
+Генерируем исходные данные:
+
+```{r}
+# первая случайная величина, имитирующая гистограмму
+v1_chunk1 = runif(chunk_size, 1, 3)
+v1_chunk2 = runif(chunk_size, 3, 4)
+v1_chunk3 = runif(chunk_size, 4, 7)
+v1 = c(v1_chunk1, v1_chunk2, v1_chunk3)[sample(chunk_size*3)]
+
+# вторая случайная величина, имитирующая гистограмму
+v2_chunk1 = runif(chunk_size, 1, 6)
+v2_chunk2 = runif(chunk_size, 6, 8.5)
+v2_chunk3 = runif(chunk_size, 8.5, 12)
+v2 = c(v2_chunk1, v2_chunk2, v2_chunk3)[sample(chunk_size*3)]
+```
+
+Визуализируем исходные распределения:
+
+```{r}
+df_v1 = tibble(var = "v1", value = v1)
+df_v2 = tibble(var = "v2", value = v2)
+df <- bind_rows(df_v1, df_v2)
+
+ggplot(df, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100) +
+  facet_wrap(~var)
+```
+
+Гистограмма распределения суммы:
+
+```{r}
+df_sum = tibble(var = "v1+v2", value = v1 + v2)
+
+ggplot(df_sum, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
+
+Комбинация по "кусочкам":
+
+```{r}
+df_chunks_1_1 = tibble(
+  var = "chunks_1_1",
+  value = v1_chunk1 + v2_chunk1
+)
+df_chunks_1_2 = tibble(
+  var = "chunks_1_2",
+  value = v1_chunk1 + v2_chunk2
+)
+df_chunks_1_3 = tibble(
+  var = "chunks_1_3",
+  value = v1_chunk1 + v2_chunk3
+)
+df_chunks_2_1 = tibble(
+  var = "chunks_2_1",
+  value = v1_chunk2 + v2_chunk1
+)
+df_chunks_2_2 = tibble(
+  var = "chunks_2_2",
+  value = v1_chunk2 + v2_chunk2
+)
+df_chunks_2_3 = tibble(
+  var = "chunks_2_3",
+  value = v1_chunk2 + v2_chunk3
+)
+df_chunks_3_1 = tibble(
+  var = "chunks_3_1",
+  value = v1_chunk3 + v2_chunk1
+)
+df_chunks_3_2 = tibble(
+  var = "chunks_3_2",
+  value = v1_chunk3 + v2_chunk2
+)
+df_chunks_3_3 = tibble(
+  var = "chunks_3_3",
+  value = v1_chunk3 + v2_chunk3
+)
+df_chunks = bind_rows(
+  df_chunks_1_1, df_chunks_1_2, df_chunks_1_3,
+  df_chunks_2_1, df_chunks_2_2, df_chunks_2_3,
+  df_chunks_3_1, df_chunks_3_2, df_chunks_3_3
+)
+
+ggplot(df_chunks, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100) +
+  facet_wrap(~var)
+```
+
+```{r}
+ggplot(df_chunks, aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
