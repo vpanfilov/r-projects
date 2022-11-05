@@ -1,5 +1,6 @@
 ---
 title: "\"Сложение\" гистограмм"
+author: "Владимир Панфилов"
 editor: visual
 number-sections: true
 toc: true
@@ -12,31 +13,37 @@ format:
 
 ```{r echo=FALSE, output=FALSE}
 library(tidyverse)
+library(magrittr)
+library(glue)
 ```
+
+# Симуляция
 
 ## Гистограммы с двумя столбиками
 
 Сгенерируем две случайные величины, имитирующие исходные гистограммы, при помощи кусков ("столбиков" исходных гистограмм), распределённых по равномерному закону. Данные случайно перемешиваем, чтобы их порядок не влиял на распределение суммы:
 
 ```{r}
-chunk_size = 10^6
+chunk_size <- 10^6
 
 # первая случайная величина, имитирующая гистограмму
-v1_chunk1 = runif(chunk_size, 2, 3)
-v1_chunk2 = runif(chunk_size, 3, 5)
-v1 = c(v1_chunk1, v1_chunk2)[sample(chunk_size*2)]
+v1_chunk1 <- runif(chunk_size, 2, 3)
+v1_chunk2 <- runif(chunk_size, 3, 5)
+v1_raw <- c(v1_chunk1, v1_chunk2)
+v1 <- v1_raw[sample(chunk_size*2)]
 
 # вторая случайная величина, имитирующая гистограмму
-v2_chunk1 = runif(chunk_size, 4, 8)
-v2_chunk2 = runif(chunk_size, 8, 10)
-v2 = c(v2_chunk1, v2_chunk2)[sample(chunk_size*2)]
+v2_chunk1 <- runif(chunk_size, 4, 8)
+v2_chunk2 <- runif(chunk_size, 8, 10)
+v2_raw <- c(v2_chunk1, v2_chunk2)
+v2 <- v2_raw[sample(chunk_size*2)]
 ```
 
 Построим гистограммы этих случайных величин:
 
 ```{r}
-df_v1 = tibble(var = "v1", value = v1)
-df_v2 = tibble(var = "v2", value = v2)
+df_v1 <- tibble(var = "v1", value = v1)
+df_v2 <- tibble(var = "v2", value = v2)
 df <- bind_rows(df_v1, df_v2)
 
 ggplot(df, aes(x = value, fill = var)) +
@@ -44,10 +51,20 @@ ggplot(df, aes(x = value, fill = var)) +
   facet_wrap(~var)
 ```
 
-Мысленно можно представить, что это две гистограммы с разной шириной интервала. В каждой гистограмме при этом по два столбика. Теперь выведем гистограмму распределения суммы:
+Мысленно можно представить, что это две гистограммы с разной шириной интервала. В каждой гистограмме при этом по два столбика.
+
+Проверим отсутствие зависимости между переменными:
 
 ```{r}
-df_sum = tibble(var = "v1+v2", value = v1 + v2)
+cor.test(v1, v2, conf.level = 0.999)
+```
+
+Видно, что случайные величины явно независимы.
+
+Теперь изобразим на графике гистограмму распределения суммы:
+
+```{r}
+df_sum <- tibble(var = "v1+v2", value = v1 + v2)
 
 ggplot(df_sum, aes(x = value, fill = var)) +
   geom_histogram(bins = 100)
@@ -56,23 +73,23 @@ ggplot(df_sum, aes(x = value, fill = var)) +
 Попробуем теперь рассмотреть взаимодействие отдельных кусков (столбиков исходных гистограмм), из которых генерировали случайные величины v1 и v2. Будем попарно брать суммы куска данных, имитирующего столбец первой гистограммы, и куска данных, имитирующего столбец второй гистограммы:
 
 ```{r}
-df_chunks_1_1 = tibble(
+df_chunks_1_1 <- tibble(
   var = "chunks_1_1",
   value = v1_chunk1 + v2_chunk1
 )
-df_chunks_1_2 = tibble(
+df_chunks_1_2 <- tibble(
   var = "chunks_1_2",
   value = v1_chunk1 + v2_chunk2
 )
-df_chunks_2_1 = tibble(
+df_chunks_2_1 <- tibble(
   var = "chunks_2_1",
   value = v1_chunk2 + v2_chunk1
 )
-df_chunks_2_2 = tibble(
+df_chunks_2_2 <- tibble(
   var = "chunks_2_2",
   value = v1_chunk2 + v2_chunk2
 )
-df_chunks = bind_rows(
+df_chunks <- bind_rows(
   df_chunks_1_1, df_chunks_1_2,
   df_chunks_2_1, df_chunks_2_2
 )
@@ -89,98 +106,439 @@ ggplot(df_chunks, aes(x = value, fill = var)) +
   geom_histogram(bins = 100)
 ```
 
-Видно, что результирущее распределение "выклеивается" из этих кусочков. Поэтому, если у нас будет 2 гистограммы со 100 столбцами каждая, то нам нужно будет рассмотреть $100 \times 100 = 10000$ комбинаций пар столбцов из этих гистограмм. После комбинирования этих куском получим гистограмму, по форме соответствующую искомой. Масштаб по оси Y нужно будет привести к целевому.
+Видно, что результирующее распределение "выклеивается" из этих кусочков. Поэтому, если у нас будет 2 гистограммы со 100 столбцами каждая, то нам нужно будет рассмотреть $100 \times 100 = 10000$ комбинаций пар столбцов из этих гистограмм. После комбинирования этих куском получим гистограмму, по форме соответствующую искомой. Масштаб по оси Y нужно будет привести к целевому.
 
-## Гистограммы с тремя столбиками
+Каждый "кусок" при этом представляет из себя распределение суммы двух случайных величин, распределённых по равномерному закону распределения. Форма этих кусков в общем случае напоминает трапецию. Эта форма превращается в треугольник, если у первой и второй случайной величины одинаковые длина промежутков (совпадает разница между параметрами b и a параметров распределения). Эти выводы согласуются с примером 2 из <https://scask.ru/a_book_tp.php?id=60>.
 
-Генерируем исходные данные:
+При этом очень важно, чтобы две случайные величины были строго независимы. Попробуем рассмотреть два примера:
+
+1.  Частичная зависимость;
+
+2.  Строгая кусочно-заданная линейная зависимость.
+
+#### Частичная зависимость
+
+Так так данные генерировались блоками, то можно рассмотреть ситуацию, когда не проводилось случайное перемешивание данных:
 
 ```{r}
-# первая случайная величина, имитирующая гистограмму
-v1_chunk1 = runif(chunk_size, 1, 3)
-v1_chunk2 = runif(chunk_size, 3, 4)
-v1_chunk3 = runif(chunk_size, 4, 7)
-v1 = c(v1_chunk1, v1_chunk2, v1_chunk3)[sample(chunk_size*3)]
-
-# вторая случайная величина, имитирующая гистограмму
-v2_chunk1 = runif(chunk_size, 1, 6)
-v2_chunk2 = runif(chunk_size, 6, 8.5)
-v2_chunk3 = runif(chunk_size, 8.5, 12)
-v2 = c(v2_chunk1, v2_chunk2, v2_chunk3)[sample(chunk_size*3)]
+cor.test(v1_raw, v2_raw)
 ```
 
-Визуализируем исходные распределения:
+Видно, что коэффициент корреляции довольно высокий.
 
 ```{r}
-df_v1 = tibble(var = "v1", value = v1)
-df_v2 = tibble(var = "v2", value = v2)
-df <- bind_rows(df_v1, df_v2)
+tibble(var = "v1_raw + v2_raw", value = v1_raw + v2_raw) %>%
+  ggplot(aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
 
-ggplot(df, aes(x = value, fill = var)) +
+Похоже, что в этом случае, исходя из особенности генерации данных на форму итогового распределения влияют только 2 куска из четырёх. Данные первого блока первой случайной величины суммируются только с данными первого блока второй случайной величины. Аналогично формируются данные и по вторым блокам.
+
+#### Строгая кусочно-заданная линейная зависимость
+
+Попробуем преобразовать данные по блокам через кусочно заданную линейную зависимость, не меняя форму распределения случайных величин.
+
+```{r}
+v2_line_chunk1 <- (v1_chunk1 - 2) * 4 + 4
+v2_line_chunk2 <- v1_chunk2 - 3 + 8
+v2_line <- c(v2_line_chunk1, v2_line_chunk2)
+
+df_v2_line <- tibble(var = "v2_line", value = v2_line)
+df_line <- bind_rows(df_v1, df_v2_line)
+
+ggplot(df_line, aes(x = value, fill = var)) +
   geom_histogram(bins = 100) +
   facet_wrap(~var)
 ```
 
-Гистограмма распределения суммы:
+Видно, что распределение второй случайной величины не поменялось.
 
 ```{r}
-df_sum = tibble(var = "v1+v2", value = v1 + v2)
+cor.test(v1_raw, v2_line)
+```
 
-ggplot(df_sum, aes(x = value, fill = var)) +
+```{r}
+tibble(var = "v1_raw + v2_line", value = v1_raw + v2_line) %>%
+  ggplot(aes(x = value, fill = var)) +
   geom_histogram(bins = 100)
 ```
 
-Комбинация по "кусочкам":
+Получаем совсем иную картину итогового распределения. Но меняются ли при этом основные метрики распределения?
 
 ```{r}
-df_chunks_1_1 = tibble(
-  var = "chunks_1_1",
-  value = v1_chunk1 + v2_chunk1
-)
-df_chunks_1_2 = tibble(
-  var = "chunks_1_2",
-  value = v1_chunk1 + v2_chunk2
-)
-df_chunks_1_3 = tibble(
-  var = "chunks_1_3",
-  value = v1_chunk1 + v2_chunk3
-)
-df_chunks_2_1 = tibble(
-  var = "chunks_2_1",
-  value = v1_chunk2 + v2_chunk1
-)
-df_chunks_2_2 = tibble(
-  var = "chunks_2_2",
-  value = v1_chunk2 + v2_chunk2
-)
-df_chunks_2_3 = tibble(
-  var = "chunks_2_3",
-  value = v1_chunk2 + v2_chunk3
-)
-df_chunks_3_1 = tibble(
-  var = "chunks_3_1",
-  value = v1_chunk3 + v2_chunk1
-)
-df_chunks_3_2 = tibble(
-  var = "chunks_3_2",
-  value = v1_chunk3 + v2_chunk2
-)
-df_chunks_3_3 = tibble(
-  var = "chunks_3_3",
-  value = v1_chunk3 + v2_chunk3
-)
-df_chunks = bind_rows(
-  df_chunks_1_1, df_chunks_1_2, df_chunks_1_3,
-  df_chunks_2_1, df_chunks_2_2, df_chunks_2_3,
-  df_chunks_3_1, df_chunks_3_2, df_chunks_3_3
+# независимость
+summary(v1 + v2)
+```
+
+```{r}
+# частичная зависимость
+summary(v1_raw + v2_raw)
+```
+
+```{r}
+# кусочно-линейная зависимость
+summary(v1_raw + v2_line)
+```
+
+Минимум, максимум, средняя и медиана практически неизменна, сильно плавают только первый и третий квартиль.
+
+Попробуем сделать симуляцию в общем случае:
+
+## Симуляция для общего случая
+
+Попробуем решить задачу симуляции в общем виде с произвольным числом кусков в данных. Число случайных значений внутри куска должно быть постоянным, иначе мы не сможем их "складывать" попарно.
+
+```{r}
+chunks_config <- tribble(
+  ~var, ~begin, ~end,
+  "r1", 0, 2,
+  "r1", 2, 3,
+  "r1", 3, 6,
+  "r2", 4, 5,
+  "r2", 5, 8,
+  "r2", 8, 10
 )
 
-ggplot(df_chunks, aes(x = value, fill = var)) +
+gen_fun <- Vectorize(runif)
+
+chunk_df <- chunks_config %>%
+  mutate(count = chunk_size) %>%
+  rowwise() %>%
+  mutate(chunk_data = list(runif(chunk_size, begin, end)))
+
+var_df <- chunk_df %>%
+  group_by(var) %>%
+  summarise(
+    count = sum(count),
+    value = list(unlist(chunk_data)[sample(count)])
+  )
+```
+
+Визуализация распределения исходных случайных величин:
+
+```{r}
+var_df %>%
+  unnest(value) %>%
+  ggplot(aes(x = value, fill = var)) +
   geom_histogram(bins = 100) +
   facet_wrap(~var)
 ```
 
+Гистограмма суммы случайных величин:
+
 ```{r}
-ggplot(df_chunks, aes(x = value, fill = var)) +
+var_df %>%
+  summarise(value = Reduce(`+`, value)) %>%
+  mutate(var = str_c(var_df$var, collapse = ' + ')) %>%
+  ggplot(aes(x = value, fill = var)) +
   geom_histogram(bins = 100)
+```
+
+Распределения комбинации кусочков:
+
+```{r}
+chunk_df_combined <- chunk_df %>%
+  select(var, chunk_data) %>%
+  group_by(var) %>%
+  mutate(chunk_index = row_number())
+
+chunk_pairs_df <- chunk_df_combined %>%
+  filter(var == "r1") %>%
+  full_join(
+    filter(chunk_df_combined, var == "r2"),
+    by = character(),
+    suffix = c("_r1", "_r2")
+  )
+
+chunk_pairs_df
+```
+
+```{r}
+chunk_pairs_data <- chunk_pairs_df %>%
+  rowwise() %>%
+  transmute(
+    chunk_index_r1, chunk_index_r2,
+    var = glue("chunk_{chunk_index_r1}_{chunk_index_r2}"),
+    value = list(unlist(chunk_data_r1) + unlist(chunk_data_r2))
+  ) %>%
+  unnest(value)
+```
+
+```{r}
+chunk_pairs_data %>%
+  ggplot(aes(x = value, fill = var)) +
+  geom_histogram(bins = 100) +
+  facet_wrap(~var)
+```
+
+И собираем нужную форму результирующего распределения из этих кусочков:
+
+```{r}
+chunk_pairs_data %>%
+  ggplot(aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
+
+# Аналитический вывод формул преобразования гистограмм
+
+Анализируя распределения комбинации кусков, сгенерированных по равномерному закону становится очевидно, что их можно представить в виде трапеции. Нужно научится определять параметры этой трапеции.
+
+![](images/trapezoid.png){fig-align="center" width="388"}
+
+Для примера возьмём куски из самого первого примера:
+
+```{r}
+tibble(var = "v1_chunk1 + v2_chunk2", value = v1_chunk1 + v2_chunk1) %>%
+  ggplot(aes(x = value, fill = var)) +
+  geom_histogram(bins = 100)
+```
+
+```{r}
+summary(v1_chunk1)
+```
+
+```{r}
+summary(v2_chunk1)
+```
+
+Проанализировав все полученные куски можно заметить особенности:
+
+1.  Трапеции всегда получаются симметричные;
+
+2.  Сторона **a** равна модулю разности размахов $v1$ и $v2$;
+
+3.  Сторона **b** равна $(max(v1) + max(v2)) - (min(v1) + min(v2))$;
+
+4.  Высоту **h** можно рассчитать, исходя из того, что площадь трапеции произведению долей площадей двух столбиков гистограмм в исходных распределениях;
+
+5.  Координата середины трапеции по оси *X* равна $\frac{min(v1) + max(v1) + min(v2) + max(v2)}{2}$;
+
+Если мы хотим из двух гистограмм, состоящих каждая из 100 столбцов получить итоговыю гистограмму, состоящую также из 100 столбцов, то нам нужно просчитать 10000 трапеций и сложить их площади, попадающие внутрь столбцов итоговой гистограммы.
+
+Попробуем аналитически разобрать пример с гистограммами из трёх столбцов:
+
+```{r}
+chunks_config_hist <- tribble(
+  ~var, ~begin, ~end,
+  "r1", 0, 2,
+  "r1", 2, 3,
+  "r1", 3, 6,
+  "r2", 4, 5,
+  "r2", 5, 8,
+  "r2", 8, 10
+)
+
+chunks_config_hist
+```
+
+Преобразуем эти данные в гистограммы из 100 столбцов:
+
+```{r}
+chunks_config_df <- chunks_config_hist %>%
+  group_by(var) %>%
+  mutate(
+    total = sum(end - begin),
+    # подогнал под единицу, формулы пока не понимаю
+    h = 2 / ((end - begin) * total),
+    step = (max(end) - min(begin)) / 100,
+    S = h * (end - begin)
+  )
+
+# Генерируем интервалы гистограммы
+hist_seq_df <- chunks_config_hist %>%
+  group_by(var) %>%
+  summarise(begin = min(begin), end = max(end), .groups = "keep") %>%
+  mutate(
+    step = (end - begin) / 100,
+    steps = list(seq(from = begin, to = end, by = step))
+  ) %>%
+  select(steps) %>%
+  unnest(steps) %>%
+  transmute(
+    start = steps,
+    stop = lead(steps)
+  ) %>%
+  filter(!is.na(end))
+
+# Пересчитываем данные из конфига на интервалы
+hist_df <- hist_seq_df %>%
+  full_join(chunks_config_df, by = "var") %>%
+  filter(start <= end, stop >= begin) %>%
+  mutate(
+    begin = pmax(start, begin),
+    end = pmin(stop, end),
+    S = (end - begin) * h
+  ) %>%
+  group_by(var, start, stop) %>%
+  summarise(S = sum(S), .groups = "drop") %>%
+  rename(step_start = start, step_stop = stop) %>%
+  mutate(h = S / (step_stop - step_start))
+  
+
+# Проверяем, что площади гистограммы равны единице
+hist_df %>%
+  group_by(var) %>%
+  summarise(S = sum(S), .groups = "drop")
+```
+
+Изобразим полученные гистограммы:
+
+```{r}
+hist_df %>%
+  ggplot(aes(xmin = step_start, xmax = step_stop, ymin = 0, ymax = h, fill = var)) +
+  geom_rect() +
+  facet_wrap(~var)
+```
+
+Получается изображение, аналогичное примеру выше, но полученное без симуляции. Попробуем теперь аналитически вывести гистограмму суммы. Для этого просчитаем все комбинации столбцов, дающие нам параметры трапеций:
+
+```{r}
+hist_df2 <- hist_df %>%
+  select(var, h, S, step_start, step_stop) %>%
+  filter(step_start != step_stop)
+
+hist_pairs_df <- hist_df2 %>%
+  filter(var == "r1") %>%
+  full_join(
+    filter(hist_df2, var == "r2"),
+    by = character(),
+    suffix = c("_r1", "_r2")
+  ) %>%
+  mutate(
+    # где-то здесь возникают погрешности, которые портят результат
+    a = abs(
+      (step_stop_r1 - step_start_r1) -
+      (step_stop_r2 - step_start_r2)
+    ),
+    b = (step_stop_r1 + step_stop_r2) - (step_start_r1 + step_start_r2),
+    h = S_r1 * S_r2,
+    middle = (
+      step_start_r1 + step_start_r2 + step_stop_r1 + step_stop_r2
+    ) / 2
+  )
+```
+
+Теперь нужно раскидать площади этих трапеций, раскиданные по столбцам результирующей гистограммы:
+
+```{r}
+hist_sum_df <- chunks_config_hist %>%
+  group_by(var) %>%
+  summarise(begin = min(begin), end = max(end), .groups = "drop") %>%
+  summarise(begin = sum(begin), end = sum(end)) %>%
+  mutate(
+    step = (end - begin) / 100,
+    steps = list(seq(from = begin, to = end, by = step))
+  ) %>%
+  select(steps) %>%
+  unnest(steps) %>%
+  transmute(
+    start = steps,
+    end = lead(steps)
+  ) %>%
+  filter(!is.na(end))
+```
+
+```{r}
+hist_sum_df_p <- hist_sum_df %>%
+  full_join(hist_pairs_df, by = character()) %>%
+  # условие пересечения интервалов
+  filter(start <= middle + b / 2, end >= middle - b / 2) %>%
+  # После этого появляются усечённые трапеции, нужно вычислить их площадь
+  mutate(
+    #a_crop = pmin(middle + a / 2, end) - pmax(middle - a / 2, start),
+    a_crop = 0, #WTF
+    b_crop = pmin(middle + b / 2, end) - pmax(middle - b / 2, start),
+    S = h * (a_crop + b_crop) /2
+  )
+
+hist_sum_result <- hist_sum_df_p %>%
+  group_by(start, end) %>%
+  summarise(S = sum(S), .groups = "drop")
+```
+
+Визуализируем результат:
+
+```{r}
+hist_sum_result %>%
+  mutate(var = "r1 + r2") %>%
+  ggplot(aes(xmin = start, xmax = end, ymin = 0, ymax = S / (end - start), fill = var)) +
+  geom_rect()
+```
+
+```{r}
+hist_sum_result %>%
+  summarise(S = sum(S))
+```
+
+Площадь не равна единице, похоже, где-то потерялся множитель. И непонятно, почему пришлось приравнять a_crop нулю. Нужно разбираться.
+
+# Обратное преобразование
+
+Есть гистограмма распределения суммы и гистограмма распределения одного из слагаемых. Требуется найти гистограмму распределения другого слагаемого. Можно ли это сделать?
+
+Можно вывести минимум и максимум распределения другого слагаемого, значит, мы можем узнать границы всех интервалов его предполагаемой гистограммы. Нужно определить только высоту этих интервалов. Т.е. у нас есть hist_sum_df_p с неизвестным параметром h для одного из распределений. Положим, нам известно значение h_r2, а нам нужно найти h_r1.
+
+Подозреваю, что нужно решить систему уравнений из 100 уравнений со 100 неизвестными, должно сработать:
+
+```{r}
+# Неверно - удалить
+r1_hist_df <- hist_sum_df_p %>%
+  mutate(S_r1_test = S / (S_r2 * b_crop / 2)) %>%
+  filter(is.finite(S_r1_test)) %>%
+  group_by(step_start_r1, step_stop_r1) %>%
+  summarise(S_r1_test = mean(S_r1_test), .groups = "drop") %>%
+  mutate(h = S_r1_test / (step_stop_r1 - step_start_r1))
+  
+```
+
+```{r}
+equations_df <- hist_sum_df_p %>%
+  transmute(
+    start, end,
+    # Кодируем название переменной в уравнении
+    variable = str_c(step_start_r1, ' - ', step_stop_r1),
+    # TODO добавить a_crop 
+    multiplier = S_r2 * b_crop / 2
+  ) %>%
+  left_join(hist_sum_result, by = c("start", "end")) %>%
+  select(start, end, S, variable, multiplier) %>%
+  group_by(start, end, S, variable) %>%
+  # Почему здесь складываем ???
+  summarise(multiplier = sum(multiplier), .groups = "drop") %>%
+  # distinct(start, end, S)
+  
+  pivot_wider(
+    names_from = variable,
+    values_from = multiplier,
+    values_fill = 0,
+    # values_fn = sum
+  )
+
+b_vector = equations_df %>%
+  pull(S)
+
+A_matrix = equations_df %>%
+  select(-start, -end, -S) %>%
+  as.matrix()
+
+# Решаем систему уравнений
+result = solve(A_matrix, b_vector)
+
+r1_hist_df <- result %>%
+  enframe(name = "interval", value = "S") %>%
+  tidyr::separate(
+    col = interval,
+    into=c("start", "end"),
+    sep = ' - ',
+    convert = TRUE
+  ) %>%
+  mutate(h = S / (end - start))
+
+```
+
+```{r}
+r1_hist_df %>%
+  mutate(var = "r1_hist") %>%
+  ggplot(aes(xmin = start, xmax = end, ymin = 0, ymax = h, fill = var)) +
+  geom_rect()
 ```
