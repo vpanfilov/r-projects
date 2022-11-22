@@ -4,16 +4,34 @@ library(magrittr)
 
 ui <- basicPage(
   title = "Сглаживание гистограммы",
-  actionButton(
-    inputId = "generate_data",
-    label = "Сгенерировать данные"
-  ),
-  sliderInput(
-    inputId = "smooth_window",
-    label = "Ширина окна сглаживания",
-    min = 0.1,
-    max = 10,
-    value = 2
+  div(
+    style = "display: flex; gap: 15px; align-items: flex-start;",
+    sliderInput(
+      inputId = "smooth_window",
+      label = "Ширина окна сглаживания",
+      min = 0.1,
+      max = 10,
+      value = 2
+    ),
+    selectInput(
+      inputId = "kernel",
+      label = "Ядро",
+      choices = list(
+        "Гауссово" = "gaussian",
+        "Епанечниково" = "epanechnikov",
+        "Равномерное" = "rectangular",
+        "Треугольное" = "triangular",
+        "Биквадратное" = "biweight",
+        "Косинусоидальное (S)" = "cosine",
+        "Косинусоидальное" = "optcosine"
+      ),
+      selected = "epanechnikov"
+    ),
+    actionButton(
+      inputId = "generate_data",
+      label = "Сгенерировать данные",
+      style = "margin-top: 25px"
+    ),
   ),
   plotOutput(
     outputId = "plot",
@@ -47,7 +65,7 @@ server <- function(input, output, session) {
     
     d <- density(
       x = histogram$mids,
-      kernel = "gaussian",
+      kernel = input$kernel,
       bw = input$smooth_window,
       weights = histogram$density
     )
