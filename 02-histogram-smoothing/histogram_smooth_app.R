@@ -25,7 +25,7 @@ ui <- basicPage(
         "Косинусоидальное (S)" = "cosine",
         "Косинусоидальное" = "optcosine"
       ),
-      selected = "epanechnikov"
+      selected = "gaussian"
     ),
     actionButton(
       inputId = "generate_data",
@@ -68,7 +68,7 @@ server <- function(input, output, session) {
       kernel = input$kernel,
       bw = input$smooth_window,
       weights = histogram$density
-    )
+    ) 
     tibble(x = d$x, y = d$y)
   })
   
