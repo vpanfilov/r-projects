@@ -13,6 +13,12 @@ ui <- basicPage(
       max = 10,
       value = 2
     ),
+    numericInput(
+      inputId = "n_bins",
+      label = "Число столбцов",
+      min = 5,
+      value = 20
+    ),
     selectInput(
       inputId = "kernel",
       label = "Ядро",
@@ -55,8 +61,9 @@ server <- function(input, output, session) {
   })
   
   histogram <- reactive({
+    n_bins <- req(input$n_bins)
     req(data()) %>%
-      hist(breaks = 20, plot = FALSE) %$%
+      hist(breaks = n_bins, plot = FALSE) %$%
       tibble(counts, density, mids)
   })
   
@@ -67,7 +74,7 @@ server <- function(input, output, session) {
       x = histogram$mids,
       kernel = input$kernel,
       bw = input$smooth_window,
-      weights = histogram$density
+      weights = histogram$density / sum(histogram$density)
     ) 
     tibble(x = d$x, y = d$y)
   })
